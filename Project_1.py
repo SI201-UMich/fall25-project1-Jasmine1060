@@ -81,7 +81,7 @@ def avg_profit_by_postal(path):
     for r in rows:
         p = r['Postal Code']
         profit = r['Profit']
-        if profit is None or p == '':
+        if profit is None or p == '': #if the profit is missing or if the postal code is missing --> skips
             continue
         totals[p] = totals.get(p, 0.0) + profit #adds the profit together for total profit
         counts[p] = counts.get(p, 0) + 1 #counts the number of times a postal code appears
@@ -95,35 +95,35 @@ def best_postal_by_avg(path):
     if not avg: #if the dictionary is empty
         return None, None
     best = max(avg, key=avg.get)
-    return best, avg[best] #returns the postal code and the average value 
+    return(f"The postal code {best} has the average profit of {avg[best]}") #returns the postal code and the average value 
 
 def worst_postal_by_average(path):
     avg = avg_profit_by_postal(path)   # uses previous function
     if not avg: #if the dictionary is empty
         return None, None
     worst = min(avg, key=avg.get)
-    return worst, avg[worst] #returns the postal code and the average value
+    return (f"The postal code {worst} has an average profit of {avg[worst]}") #returns the postal code and the average value
 
-#def Generate_report(min, max):
+def written_results(path):
     
 
 #four test cases
 #test case for filtered list function 
-class TestFilteredCSV(unittest.TestCase):
-    def test_filtered(self):
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
-            t.write("Postal Code,Category,Profit,Other\n")
-            t.write("11111,Furniture,$100.00,x\n")
-            t.write("11111,Furniture,$200.00,y\n")
-            t_path = t.name
-        try:
-            rows = csv_to_filtered_list(t_path)
-            self.assertEqual(len(rows), 2)
-            self.assertEqual(rows[0]['Postal Code'], '11111')
-            self.assertEqual(rows[0]['Category'], 'Furniture')
-            self.assertAlmostEqual(rows[0]['Profit'], 100.00)
-        finally:
-            os.unlink(t_path)
+    class TestFilteredCSV(unittest.TestCase):
+        def test_filtered(self):
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
+                t.write("Postal Code,Category,Profit,Other\n")
+                t.write("11111,Furniture,$100.00,x\n")
+                t.write("11111,Furniture,$200.00,y\n")
+                t_path = t.name
+            try:
+                rows = csv_to_filtered_list(t_path)
+                self.assertEqual(len(rows), 2)
+                self.assertEqual(rows[0]['Postal Code'], '11111')
+                self.assertEqual(rows[0]['Category'], 'Furniture')
+                self.assertAlmostEqual(rows[0]['Profit'], 100.00)
+            finally:
+                os.unlink(t_path)
 
 #test case for average profit function
 class TestAvgProfitByPostal(unittest.TestCase):
