@@ -4,11 +4,7 @@ import csv
 import tempfile
 #calculation fuctions
 
-import os
-import csv
-
 def csv_to_filtered_list(path, convert_profit=True):
-    #includes repeating postal codes --> the function returns a list of dicts, each dict is one row
     """
     Return a list of dicts with exactly the keys:
       'Postal Code', 'Category', 'Profit'
@@ -20,13 +16,13 @@ def csv_to_filtered_list(path, convert_profit=True):
     base = os.path.abspath(os.path.dirname(__file__))
     full = os.path.join(base, path)
 
-    out = [] #list of dicts that will be returned
+    out = []
     with open(full, newline='', encoding='utf-8') as fh:
         reader = csv.DictReader(fh)
         headers = reader.fieldnames or []
-        # find best header names for each wanted key (case-insensitive, partial match)
+
+        # Map headers dynamically
         mapping = {}
-        low_headers = [h.lower() if h is not None else '' for h in headers]
         for want in wanted_keys:
             found = None
             for h in headers:
@@ -34,7 +30,6 @@ def csv_to_filtered_list(path, convert_profit=True):
                     found = h
                     break
             if not found:
-                # try exact match ignoring spaces/case
                 for h in headers:
                     if h and h.strip().lower() == want:
                         found = h
@@ -44,20 +39,21 @@ def csv_to_filtered_list(path, convert_profit=True):
             mapping[want] = found
 
         for row in reader:
-            # skip completely empty rows
+            # skip empty rows
             if not any((v or '').strip() for v in row.values()):
                 continue
+
             postal = (row.get(mapping['postal']) or '').strip()
             category = (row.get(mapping['category']) or '').strip()
             profit_raw = (row.get(mapping['profit']) or '').strip()
 
-            # skip rows missing postal/category/profit
+            # skip missing data
             if postal == '' and category == '' and profit_raw == '':
                 continue
 
-            # parse profit if requested
+            # parse profit safely
             if convert_profit:
-                pr = profit_raw.replace('$', '').replace(',', '')
+                pr = profit_raw.replace('$', '').replace(',', '').strip()
                 try:
                     profit_val = float(pr) if pr != '' else None
                 except ValueError:
@@ -78,6 +74,7 @@ def avg_profit_by_postal(path):
     rows = csv_to_filtered_list(path, convert_profit=True)
     totals = {}
     counts = {}
+    
     for r in rows:
         p = r['Postal Code']
         profit = r['Profit']
@@ -88,6 +85,9 @@ def avg_profit_by_postal(path):
 
     avg_dict = {p: round(totals[p] / counts[p], 2) for p in totals} #returns a seperate dictionary for each postal code and their average profit
     return avg_dict
+    
+
+
 # result example: {'12345': 123.45, '67890': 50.00}
 
 def best_postal_by_avg(path):
@@ -95,31 +95,39 @@ def best_postal_by_avg(path):
     if not avg: #if the dictionary is empty
         return None, None
     best = max(avg, key=avg.get)
-    return(f"The postal code {best} has the average profit of {avg[best]}") #returns the postal code and the average value 
+    # return postal code and numeric average
+    return best, avg[best]
 
-def worst_postal_by_average(path):
-    avg = avg_profit_by_postal(path)   # uses previous function
-    if not avg: #if the dictionary is empty
+def worst_postal_by_avg(path):
+    avg = avg_profit_by_postal(path)
+    if not avg:
         return None, None
     worst = min(avg, key=avg.get)
-    return (f"The postal code {worst} has an average profit of {avg[worst]}") #returns the postal code and the average value
+    return worst, avg[worst]
+
+def worst_postals_by_avg(path):
+    """Return list of (postal, avg) tied for the worst average."""
+    avg = avg_profit_by_postal(path)
+    if not avg:
+        return []
+    min_val = min(avg.values())
+    return [(p, v) for p, v in avg.items() if v == min_val]
 
 import os
 import csv
 
-def write_best_worst_to_csv(input_csv, out_csv, include_ties=False):
+def write_best_worst_to_csv(input_csv, out_csv):
     """
-    Write best/worst average profit postal codes to out_csv.
-    - input_csv: path to the source Superstore CSV (same format your avg function expects)
+    Write best and worst average profit postal codes to out_csv (single winner each).
+    - input_csv: path to the source Superstore CSV
     - out_csv: destination CSV path (overwritten)
-    - include_ties: if True, writes all postal codes tied for best/worst; otherwise writes one each
     Output CSV columns: Type,Postal Code,Average Profit
     """
-    avg = avg_profit_by_postal(input_csv)  # uses previous average profit function
+    avg = avg_profit_by_postal(input_csv)
     # ensure folder exists
     os.makedirs(os.path.dirname(out_csv) or ".", exist_ok=True)
 
-    # empty case: write header only
+    # if empty case, write header only
     if not avg:
         with open(out_csv, "w", newline="", encoding="utf-8") as fh:
             writer = csv.writer(fh)
@@ -131,14 +139,10 @@ def write_best_worst_to_csv(input_csv, out_csv, include_ties=False):
     max_val = max(values)
     min_val = min(values)
 
-    if include_ties:
-        best_items = [(p, v) for p, v in avg.items() if v == max_val]
-        worst_items = [(p, v) for p, v in avg.items() if v == min_val]
-    else:
-        best_postal = max(avg, key=avg.get)
-        worst_postal = min(avg, key=avg.get)
-        best_items = [(best_postal, avg[best_postal])]
-        worst_items = [(worst_postal, avg[worst_postal])]
+    best_postal = max(avg, key=avg.get)
+    worst_postal = min(avg, key=avg.get)
+    best_items = [(best_postal, avg[best_postal])]
+    worst_items = [(worst_postal, avg[worst_postal])]
 
     # write CSV
     with open(out_csv, "w", newline="", encoding="utf-8") as fh:
@@ -147,9 +151,7 @@ def write_best_worst_to_csv(input_csv, out_csv, include_ties=False):
         for p, v in best_items:
             writer.writerow(["Best", p, f"{v:.2f}"])
         for p, v in worst_items:
-            writer.writerow(["Worst", p, f"{v:.2f}"])    
-    write_best_worst_to_csv("Superstore.csv", "postal_best_worst.csv", include_ties=False)
-
+            writer.writerow(["Worst", p, f"{v:.2f}"])
 
 #four test cases
 #test case for filtered list function 
@@ -208,8 +210,6 @@ class TestMaxProfitByPostal(unittest.TestCase):
             os.unlink(path)
 
 #test case for worst postal by average profit function:
-from Project_1 import worst_postal_by_avg, worst_postals_by_avg
-
 class TestWorstPostalByAvg(unittest.TestCase):
     def test_single_worst_postal(self):
         # 11111 avg=150, 22222 avg=50 (worst), 33333 ignored or higher
@@ -229,7 +229,4 @@ class TestWorstPostalByAvg(unittest.TestCase):
             os.unlink(path)
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
-
-if __name__ == "__main__":
     unittest.main(verbosity=2)
