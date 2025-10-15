@@ -76,6 +76,8 @@ def avg_profit_by_postal(path):
     counts = {}
     
     for r in rows:
+        if r['Category'] != 'Furniture':  #ignores non furniture 
+            continue
         p = r['Postal Code']
         profit = r['Profit']
         if profit is None or p == '': #if the profit is missing or if the postal code is missing --> skips
