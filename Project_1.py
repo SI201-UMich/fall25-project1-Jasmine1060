@@ -104,26 +104,70 @@ def worst_postal_by_average(path):
     worst = min(avg, key=avg.get)
     return (f"The postal code {worst} has an average profit of {avg[worst]}") #returns the postal code and the average value
 
-def written_results(path):
-    
+import os
+import csv
+
+def write_best_worst_to_csv(input_csv, out_csv, include_ties=False):
+    """
+    Write best/worst average profit postal codes to out_csv.
+    - input_csv: path to the source Superstore CSV (same format your avg function expects)
+    - out_csv: destination CSV path (overwritten)
+    - include_ties: if True, writes all postal codes tied for best/worst; otherwise writes one each
+    Output CSV columns: Type,Postal Code,Average Profit
+    """
+    avg = avg_profit_by_postal(input_csv)  # uses previous average profit function
+    # ensure folder exists
+    os.makedirs(os.path.dirname(out_csv) or ".", exist_ok=True)
+
+    # empty case: write header only
+    if not avg:
+        with open(out_csv, "w", newline="", encoding="utf-8") as fh:
+            writer = csv.writer(fh)
+            writer.writerow(["Type", "Postal Code", "Average Profit"])
+        return
+
+    # find best/worst
+    values = list(avg.values())
+    max_val = max(values)
+    min_val = min(values)
+
+    if include_ties:
+        best_items = [(p, v) for p, v in avg.items() if v == max_val]
+        worst_items = [(p, v) for p, v in avg.items() if v == min_val]
+    else:
+        best_postal = max(avg, key=avg.get)
+        worst_postal = min(avg, key=avg.get)
+        best_items = [(best_postal, avg[best_postal])]
+        worst_items = [(worst_postal, avg[worst_postal])]
+
+    # write CSV
+    with open(out_csv, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.writer(fh)
+        writer.writerow(["Type", "Postal Code", "Average Profit"])
+        for p, v in best_items:
+            writer.writerow(["Best", p, f"{v:.2f}"])
+        for p, v in worst_items:
+            writer.writerow(["Worst", p, f"{v:.2f}"])    
+    write_best_worst_to_csv("Superstore.csv", "postal_best_worst.csv", include_ties=False)
+
 
 #four test cases
 #test case for filtered list function 
-    class TestFilteredCSV(unittest.TestCase):
-        def test_filtered(self):
-            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
-                t.write("Postal Code,Category,Profit,Other\n")
-                t.write("11111,Furniture,$100.00,x\n")
-                t.write("11111,Furniture,$200.00,y\n")
-                t_path = t.name
-            try:
-                rows = csv_to_filtered_list(t_path)
-                self.assertEqual(len(rows), 2)
-                self.assertEqual(rows[0]['Postal Code'], '11111')
-                self.assertEqual(rows[0]['Category'], 'Furniture')
-                self.assertAlmostEqual(rows[0]['Profit'], 100.00)
-            finally:
-                os.unlink(t_path)
+class TestFilteredCSV(unittest.TestCase):
+    def test_filtered(self):
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
+            t.write("Postal Code,Category,Profit,Other\n")
+            t.write("11111,Furniture,$100.00,x\n")
+            t.write("11111,Furniture,$200.00,y\n")
+            t_path = t.name
+        try:
+            rows = csv_to_filtered_list(t_path)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]['Postal Code'], '11111')
+            self.assertEqual(rows[0]['Category'], 'Furniture')
+            self.assertAlmostEqual(rows[0]['Profit'], 100.00)
+        finally:
+            os.unlink(t_path)
 
 #test case for average profit function
 class TestAvgProfitByPostal(unittest.TestCase):
