@@ -82,20 +82,50 @@ def avg_profit_by_postal(path):
         p = r['Postal Code']
         profit = r['Profit']
         if profit is None or p == '':
-            continue #skips if the porfit is missing 
-        totals[p] = totals.get(p, 0.0) + profit #getting the total profit for each postal code
-        counts[p] = counts.get(p, 0) + 1 #getting the count for how many times a postal code is presented
-    return {p: round(totals[p]/counts[p], 2) for p in totals} #returns the average
+            continue
+        totals[p] = totals.get(p, 0.0) + profit #adds the profit together for total profit
+        counts[p] = counts.get(p, 0) + 1 #counts the number of times a postal code appears
+
+    avg_dict = {p: round(totals[p] / counts[p], 2) for p in totals} #returns a seperate dictionary for each postal code and their average profit
+    return avg_dict
 # result example: {'12345': 123.45, '67890': 50.00}
 
-#def Find_postal_max_furniture(consumer,money):
+def best_postal_by_avg(path):
+    avg = avg_profit_by_postal(path)   # uses previous function
+    if not avg: #if the dictionary is empty
+        return None, None
+    best = max(avg, key=avg.get)
+    return best, avg[best] #returns the postal code and the average value 
 
-#def Find_postal_min_furniture(consumer,money):
+def worst_postal_by_average(path):
+    avg = avg_profit_by_postal(path)   # uses previous function
+    if not avg: #if the dictionary is empty
+        return None, None
+    worst = min(avg, key=avg.get)
+    return worst, avg[worst] #returns the postal code and the average value
 
 #def Generate_report(min, max):
     
 
 #four test cases
+#test case for filtered list function 
+class TestFilteredCSV(unittest.TestCase):
+    def test_filtered(self):
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
+            t.write("Postal Code,Category,Profit,Other\n")
+            t.write("11111,Furniture,$100.00,x\n")
+            t.write("11111,Furniture,$200.00,y\n")
+            t_path = t.name
+        try:
+            rows = csv_to_filtered_list(t_path)
+            self.assertEqual(len(rows), 2)
+            self.assertEqual(rows[0]['Postal Code'], '11111')
+            self.assertEqual(rows[0]['Category'], 'Furniture')
+            self.assertAlmostEqual(rows[0]['Profit'], 100.00)
+        finally:
+            os.unlink(t_path)
+
+#test case for average profit function
 class TestAvgProfitByPostal(unittest.TestCase):
     def test_avg_profit(self):
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
@@ -114,21 +144,45 @@ class TestAvgProfitByPostal(unittest.TestCase):
             self.assertNotIn('33333', result)  # missing profit should be skipped
         finally:
             os.unlink(t_path)
-class TestFilteredCSV(unittest.TestCase):
-    def test_filtered(self):
+
+#test case for best postal by average profit function:
+class TestMaxProfitByPostal(unittest.TestCase):
+    def test_single_best_postal(self):
+        # postal 22222 has average 500.00 (single best)
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
             t.write("Postal Code,Category,Profit,Other\n")
             t.write("11111,Furniture,$100.00,x\n")
-            t.write("11111,Furniture,$200.00,y\n")
-            t_path = t.name
+            t.write("11111,Furniture,$200.00,x\n")
+            t.write("22222,Furniture,$500.00,x\n")
+            t.write("33333,Office,$1000.00,x\n")   # non-Furniture should be ignored by avg routine
+            path = t.name
         try:
-            rows = csv_to_filtered_list(t_path)
-            self.assertEqual(len(rows), 2)
-            self.assertEqual(rows[0]['Postal Code'], '11111')
-            self.assertEqual(rows[0]['Category'], 'Furniture')
-            self.assertAlmostEqual(rows[0]['Profit'], 100.00)
+            postal, avg = best_postal_by_avg(path)
+            self.assertEqual(postal, '22222')
+            self.assertEqual(avg, 500.00)
         finally:
-            os.unlink(t_path)
+            os.unlink(path)
+
+#test case for worst postal by average profit function:
+from Project_1 import worst_postal_by_avg, worst_postals_by_avg
+
+class TestWorstPostalByAvg(unittest.TestCase):
+    def test_single_worst_postal(self):
+        # 11111 avg=150, 22222 avg=50 (worst), 33333 ignored or higher
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.csv', newline='', encoding='utf-8') as t:
+            t.write("Postal Code,Category,Profit\n")
+            t.write("11111,Furniture,$100.00\n")
+            t.write("11111,Furniture,$200.00\n")
+            t.write("22222,Furniture,$50.00\n")
+            t.write("22222,Furniture,$50.00\n")
+            t.write("33333,Office,$1000.00\n")  # non-Furniture may be ignored depending on your loader
+            path = t.name
+        try:
+            postal, avg = worst_postal_by_avg(path)
+            self.assertEqual(postal, '22222')
+            self.assertEqual(avg, 50.00)
+        finally:
+            os.unlink(path)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
